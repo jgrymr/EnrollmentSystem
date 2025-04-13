@@ -73,7 +73,7 @@ namespace EvaluationSystem
                     MessageBox.Show("Entries Recorded");
                 }
             }
-            catch
+            catch (Exception ex)
             {
 
             }
