@@ -97,25 +97,25 @@ namespace EvaluationSystem
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
                 conn.Open();
-                using (SqlCommand getSY = new SqlCommand("SELECT SSFSCHOOLYEAR FROM SubjectSchedFile WHERE SSFEDPCODE = @edp", conn))
-                {
-                    getSY.Parameters.AddWithValue("@edp", firstEDPCode);
-                    object resultSY = getSY.ExecuteScalar();
-                    if (resultSY != null && int.TryParse(resultSY.ToString(), out int sy))
-                    {
-                        schoolYear = sy.ToString();
-                    }
-                    else
-                    {
-                        MessageBox.Show("Could not retrieve school year for EDP code.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        return;
-                    }
-                }
-
                 SqlTransaction transaction = conn.BeginTransaction();
-
+                bool success = false; 
                 try
                 {
+                    using (SqlCommand getSY = new SqlCommand("SELECT SSFSCHOOLYEAR FROM SubjectSchedFile WHERE SSFEDPCODE = @edp", conn, transaction))
+                    {
+                        getSY.Parameters.AddWithValue("@edp", firstEDPCode);
+                        object resultSY = getSY.ExecuteScalar();
+                        if (resultSY != null && int.TryParse(resultSY.ToString(), out int sy))
+                        {
+                            schoolYear = sy.ToString();
+                        }
+                        else
+                        {
+                            MessageBox.Show("Could not retrieve school year for EDP code.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            return;
+                        }
+                    }
+                    
                     // Insert into EnrollmentHeaderFile
                     string insertHeaderSql = @"INSERT INTO EnrollmentHeaderFile
                         (ENRHFSTUDID, ENRHFSTUDDATEENROLL, ENRHFSTUDSCHLYR, ENRHFSTUDENCODER, ENRHFSTUDTOTALUNITS, ENRHFSTUDSTATUS)
@@ -132,7 +132,7 @@ namespace EvaluationSystem
                         cmdHeader.ExecuteNonQuery();
                     }
 
-                    // Insert into EnrollmentDetailFile for each subject
+                    // Insert into EnrollmentDetailFile
                     foreach (DataGridViewRow row in SubjectChoosedDataGridView.Rows)
                     {
                         if (row.IsNewRow) continue;
@@ -155,14 +155,20 @@ namespace EvaluationSystem
                             cmdDetail.ExecuteNonQuery();
                         }
                     }
-
+                    success = true;
                     transaction.Commit();
                     MessageBox.Show("Enrollment saved successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 catch (Exception ex)
                 {
-                    transaction.Rollback();
                     MessageBox.Show("Error saving enrollment: " + ex.Message, "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    if (!success)
+                    {
+                        transaction.Rollback();
+                    }
                 }
             }
         }
